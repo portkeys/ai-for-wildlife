@@ -1,0 +1,13 @@
+.env
+.venv/
+data/uploads/
+data/frames/
+data/thumbs/
+data/compressed/
+data/app.db
+__pycache__/
+*.pyc
+.DS_Store
+videos/
+.playwright-mcp/
+.claude/

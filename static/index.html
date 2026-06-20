@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI for Wildlife</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐆</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🐆</span>
+      <div>
+        <h1>AI for Wildlife</h1>
+        <p class="subtitle">Multimodality LLMs to identify animal species and behaviors</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="session-cost" id="sessionCost" title="Total spend this session">
+        <span class="label">Session cost</span>
+        <span class="value" id="sessionCostValue">$0.000000</span>
+      </div>
+      <button class="btn" id="scoreboardBtn" title="Model accuracy vs. your reviews">📊 Model accuracy</button>
+      <button class="btn" id="settingsBtn">⚙ Settings</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT: Library + upload -->
+    <section class="col col-left">
+      <div class="col-head">
+        <h2>Video Library</h2>
+        <span class="count-pill" id="videoCount">0</span>
+      </div>
+
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <input type="file" id="fileInput" accept="video/*,.mp4,.mov,.avi,.mkv,.webm" multiple hidden />
+        <div class="dz-inner">
+          <span class="dz-icon">⬆</span>
+          <strong>Drop videos here</strong>
+          <span class="dz-sub">or click to choose files from your computer</span>
+        </div>
+      </label>
+      <div class="upload-actions">
+        <button type="button" class="btn small ghost" id="folderBtn">📁 Choose a folder…</button>
+        <input type="file" id="folderInput" webkitdirectory directory multiple hidden />
+        <span class="hint">Picks every video inside the folder.</span>
+      </div>
+
+      <div class="batch-bar" id="batchBar" hidden>
+        <button class="btn small" id="analyzeAllBtn">▶ Analyze unprocessed</button>
+        <span class="hint" id="batchHint"></span>
+      </div>
+
+      <div class="filter-tabs" id="filterTabs"></div>
+
+      <div class="video-list" id="videoList"></div>
+    </section>
+
+    <!-- CENTER: Player + model comparison -->
+    <section class="col col-center">
+      <div id="playerEmpty" class="empty-state">
+        <span class="empty-icon">🎬</span>
+        <p>Select a video from the library to begin.</p>
+      </div>
+
+      <div id="playerPane" hidden>
+        <div class="player-wrap">
+          <video id="player" controls preload="metadata"></video>
+        </div>
+        <div class="player-meta" id="playerMeta"></div>
+
+        <div class="analyze-row">
+          <div class="model-summary">
+            <span class="mode-pill" id="modePill">Auto</span>
+            <div class="model-chips" id="activeModelChips"></div>
+            <button class="btn small ghost" id="changeModelsBtn" title="Change which models analyze your videos">Change…</button>
+          </div>
+          <button class="btn primary" id="analyzeBtn">🔬 Analyze this video</button>
+        </div>
+
+        <div class="consensus-banner" id="consensusBanner" hidden></div>
+
+        <div class="model-cards" id="modelCards"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Human review -->
+    <section class="col col-right">
+      <div class="col-head">
+        <h2>Human Review</h2>
+      </div>
+      <div id="reviewEmpty" class="empty-state small">
+        <p>Select a video to review its classification.</p>
+      </div>
+      <div id="reviewPane" class="review-pane" hidden>
+        <div class="review-status" id="reviewStatusBadge"></div>
+
+        <label class="field">
+          <span>Final species (common)</span>
+          <input type="text" id="rvSpeciesCommon" placeholder="e.g. Red fox" list="speciesSuggest" />
+          <datalist id="speciesSuggest"></datalist>
+        </label>
+        <label class="field">
+          <span>Final species (scientific)</span>
+          <input type="text" id="rvSpeciesSci" placeholder="e.g. Vulpes vulpes" />
+        </label>
+        <label class="field">
+          <span>Final behavior</span>
+          <input type="text" id="rvBehavior" placeholder="e.g. foraging" list="behaviorSuggest" />
+          <datalist id="behaviorSuggest"></datalist>
+        </label>
+        <label class="field">
+          <span>Reviewer notes</span>
+          <textarea id="rvNotes" rows="4" placeholder="Corrections, context, uncertainty…"></textarea>
+        </label>
+
+        <div class="review-actions">
+          <button class="btn primary" id="saveReviewBtn">💾 Save review</button>
+        </div>
+        <p class="review-hint">Tip: click “↳ Use this” on a model card to fill these fields, edit anything, then Save.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings modal -->
+  <div class="modal-backdrop" id="settingsModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Settings</h2>
+        <button class="icon-btn" id="closeSettings">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <span>Which models analyze each video</span>
+          <div class="mode-toggle" id="modeToggle">
+            <label class="mode-opt">
+              <input type="radio" name="mode" value="auto" />
+              <span><b>Auto</b><small>Recommended — compares a curated set of models (shown below). Nothing to configure.</small></span>
+            </label>
+            <label class="mode-opt">
+              <input type="radio" name="mode" value="custom" />
+              <span><b>Custom</b><small>Pick your own set of models to compare.</small></span>
+            </label>
+          </div>
+
+          <div id="autoModelsView" class="auto-models"></div>
+
+          <div id="customModelsView" hidden>
+            <div class="models-head">
+              <span>Choose models to compare <small class="hint">(video → text only)</small></span>
+              <button class="btn small ghost" id="loadModelsBtn">↻ Load video models</button>
+            </div>
+            <input type="text" id="modelSearch" placeholder="Filter models…" class="model-search" />
+            <div class="model-picker" id="modelPicker">
+              <p class="hint">Click "Load video models" to choose from the video→text models. You can also type a custom model name below.</p>
+            </div>
+            <div class="selected-models">
+              <span>Selected:</span>
+              <div id="selectedModelTags" class="tags"></div>
+            </div>
+            <div class="custom-model-row">
+              <input type="text" id="customModel" placeholder="add model e.g. google/gemini-2.5-flash" />
+              <button class="btn small" id="addCustomModel">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <span>How the clip is sent to the models</span>
+          <div class="mode-toggle" id="inputModeToggle">
+            <label class="mode-opt">
+              <input type="radio" name="inputMode" value="video" />
+              <span><b>Native video</b><small>Recommended. Sends the actual (compressed) clip — uses the models' real video understanding, best for behavior. Only video-capable models.</small></span>
+            </label>
+            <label class="mode-opt">
+              <input type="radio" name="inputMode" value="frames" />
+              <span><b>Frame sampling</b><small>Sends a few stills instead. Works with any image model; cheaper, but loses motion between frames.</small></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field" id="frameCountField">
+          <span>Frames analyzed per video <small class="hint">(frame-sampling mode only)</small></span>
+          <input type="range" id="frameCount" min="4" max="24" step="2" />
+          <output id="frameCountOut"></output>
+          <small class="hint">16 is recommended. Species ID needs only a few frames, but <b>behavior</b> (walking vs. foraging) is judged from motion across frames, so denser sampling helps.</small>
+        </div>
+
+        <div class="field">
+          <span>When should a clip be sent to human review?</span>
+          <div class="mode-toggle" id="reviewPolicyToggle">
+            <label class="mode-opt">
+              <input type="radio" name="reviewPolicy" value="majority" />
+              <span><b>Only when models disagree</b><small>Recommended. If most models agree, the clip is auto-accepted — reviewers focus on the uncertain minority (the “20%”).</small></span>
+            </label>
+            <label class="mode-opt">
+              <input type="radio" name="reviewPolicy" value="unanimous" />
+              <span><b>Whenever they're not unanimous</b><small>Strict. Any disagreement is sent to review — higher accuracy, more reviewing.</small></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn primary" id="saveSettings">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scoreboard modal -->
+  <div class="modal-backdrop" id="scoreboardModal" hidden>
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h2>📊 Model accuracy</h2>
+        <button class="icon-btn" id="closeScoreboard">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="hint" id="scoreboardSummary"></p>
+        <div id="scoreboardBody"></div>
+        <p class="hint scoreboard-foot">A model is "correct" when its prediction matches your saved <b>final</b> answer. Species and behavior are scored separately. Cost / correct = total spend on that model ÷ its correct species IDs. This is the signal a future adaptive model-picker will learn from.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="refreshScoreboard">↻ Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

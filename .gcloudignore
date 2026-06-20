@@ -1,0 +1,14 @@
+# What NOT to upload to Cloud Build when running `gcloud run deploy --source .`
+# (the Dockerfile's .dockerignore governs the image build itself).
+.git/
+.gitignore
+.venv/
+data/
+videos/
+.playwright-mcp/
+.claude/
+__pycache__/
+*.pyc
+*.png
+.DS_Store
+.env

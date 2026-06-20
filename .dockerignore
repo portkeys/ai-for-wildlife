@@ -1,0 +1,19 @@
+# Keep the build context (and image) small and secret-free.
+.git/
+.gitignore
+.venv/
+data/
+videos/
+.playwright-mcp/
+.claude/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.png
+.DS_Store
+.env
+.env.example
+run.sh
+README.md
+ROADMAP.md
+CLAUDE.md
