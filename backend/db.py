@@ -84,9 +84,19 @@ def _get_pool():
         # Our own small pool so the app's many short queries reuse connections.
         # prepare_threshold=None disables server-side prepared statements so this
         # works with Neon's pooled (PgBouncer) endpoint as well as a direct one.
+        #
+        # Neon auto-suspends idle compute (~5 min on the free tier) and drops the
+        # TCP/SSL connection, so a pooled connection can be silently dead by the
+        # next request ("SSL connection has been closed unexpectedly"). Two guards:
+        #   - check=check_connection validates each connection on checkout and
+        #     transparently replaces a dead one, so callers never see a stale conn.
+        #   - max_idle/max_lifetime recycle connections before Neon's idle window,
+        #     so the check rarely has to reconnect on the hot path.
         _POOL = ConnectionPool(
             os.environ["DATABASE_URL"], min_size=1, max_size=10,
-            kwargs={"row_factory": dict_row, "prepare_threshold": None}, open=True,
+            kwargs={"row_factory": dict_row, "prepare_threshold": None},
+            check=ConnectionPool.check_connection,
+            max_idle=120, max_lifetime=240, open=True,
         )
     return _POOL
 
