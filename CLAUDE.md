@@ -88,6 +88,11 @@ needs server-side `ffmpeg`, and (b) the future direction (classify videos straig
 S3/GCS by URL) has no browser in the loop, so server-side processing is the right foundation.
 Artifacts: `Dockerfile`, `.dockerignore`, `.gcloudignore`.
 
+**Live:** https://ai-for-wildlife.threeportkeys.com (custom domain; also the `…run.app` URL).
+The custom domain is a Cloud Run domain mapping with a Cloudflare CNAME that **must stay
+DNS-only / grey-cloud** — proxying it re-imposes Cloudflare's 100 MB upload cap (clips are up
+to 148 MB) and blocks Google's cert.
+
 Decisions baked into the setup:
 - **HTTP/2, not HTTP/1.** Cloud Run caps HTTP/1 request bodies at **32 MiB**, but real CCF clips
   are **40–150 MB**. Serving over **HTTP/2** removes the cap. uvicorn has no HTTP/2, so the

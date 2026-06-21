@@ -3,6 +3,9 @@
 The app runs **as-is** in a container on Cloud Run. Native-video analysis needs server-side
 `ffmpeg`, and Cloud Run gives us that plus an always-warm, deploy-from-GitHub experience.
 
+**Live URL:** https://ai-for-wildlife.threeportkeys.com (custom domain via Cloud Run domain
+mapping; the underlying `…us-central1.run.app` URL also works).
+
 ## Why these settings
 
 - **`--use-http2`** — Cloud Run caps HTTP/1 request bodies at **32 MiB**, but real CCF clips are

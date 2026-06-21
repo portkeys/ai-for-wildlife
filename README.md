@@ -2,6 +2,8 @@
 
 *Multimodality LLMs to identify animal species and behaviors — built for the Cheetah Conservation Fund.*
 
+**Live demo:** https://ai-for-wildlife.threeportkeys.com
+
 Upload wildlife videos, classify **species + behavior** automatically with several
 multimodal LLMs at once (via OpenRouter), and let a human reviewer confirm or correct
 the result. When the models agree you get high confidence; when they disagree the clip

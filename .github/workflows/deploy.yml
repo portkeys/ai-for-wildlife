@@ -6,6 +6,7 @@ name: Deploy to Cloud Run
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md']    # doc-only changes don't need a redeploy
   workflow_dispatch: {}
 
 permissions:
