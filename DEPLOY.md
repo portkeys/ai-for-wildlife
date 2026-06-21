@@ -8,7 +8,8 @@ The app runs **as-is** in a container on Cloud Run. Native-video analysis needs 
 - **`--use-http2`** — Cloud Run caps HTTP/1 request bodies at **32 MiB**, but real CCF clips are
   40–150 MB. Serving over HTTP/2 removes the cap. The container runs **hypercorn** (uvicorn has
   no HTTP/2); h2c is auto-negotiated. *(Validated locally: a 44.5 MB clip uploads over h2c fine.)*
-- **`--min-instances=1`** — always warm, no cold start, no sleeping.
+- **`--min-instances=0`** — scale to zero so GCP cost is ~$0 between demos (a ~2–5s cold start
+  on the first hit after idle). Set `--min-instances=1` for an always-warm instance (~$40/mo).
 - **`--memory=4Gi`** — Cloud Run's filesystem is RAM-backed; uploads/frames/db live in memory.
   Give it headroom and upload in modest batches. Data **resets on redeploy** (fine for the demo;
   see "Persistence" below).
@@ -39,7 +40,7 @@ gcloud run deploy ai-for-wildlife \
   --source . \
   --region us-central1 \
   --use-http2 \
-  --min-instances=1 \
+  --min-instances=0 \
   --memory=4Gi \
   --cpu=2 \
   --timeout=600 \

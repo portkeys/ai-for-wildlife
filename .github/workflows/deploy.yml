@@ -36,8 +36,9 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
 
       # Builds the Dockerfile with Cloud Build and rolls out a new revision.
-      # Keep these flags in sync with DEPLOY.md. To cut cost to ~$0 between demos,
-      # change --min-instances=1 to --min-instances=0 (adds a ~2-5s cold start).
+      # Keep these flags in sync with DEPLOY.md. Scale-to-zero (min-instances=0)
+      # keeps GCP cost ~$0 between demos at the price of a ~2-5s cold start on the
+      # first hit; set --min-instances=1 for an always-warm instance (~$40/mo).
       - name: Deploy
         run: |
           gcloud run deploy "$SERVICE" \
@@ -45,7 +46,7 @@ jobs:
             --project "$PROJECT_ID" \
             --region "$REGION" \
             --use-http2 \
-            --min-instances=1 \
+            --min-instances=0 \
             --memory=4Gi \
             --cpu=2 \
             --timeout=600 \

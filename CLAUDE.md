@@ -93,8 +93,9 @@ Decisions baked into the setup:
   are **40–150 MB**. Serving over **HTTP/2** removes the cap. uvicorn has no HTTP/2, so the
   container runs **hypercorn** (`backend.app:app`); deploy the service with `--use-http2`.
   (Local dev still uses uvicorn via `run.sh` — local has no size cap.)
-- **Always-warm:** `--min-instances=1` (no cold start, no sleeping). This is the experience the
-  team wants and why we avoided sleep-prone free tiers.
+- **Scaling:** `--min-instances=0` (scale to zero, ~$0 idle, ~2–5s cold start) for the demo;
+  `--min-instances=1` for always-warm (~$40/mo). The prebuilt image makes the cold start far
+  shorter than the sleep-prone free tiers we avoided.
 - **In-memory filesystem.** Cloud Run's disk is RAM-backed; `data/` (uploads, frames, db) lives
   in memory, bounded by instance RAM, and **resets on redeploy/restart**. Acceptable for the
   demo. Use `--memory=4Gi` and upload in modest batches. Persistence (Neon Postgres + a GCS
@@ -113,8 +114,8 @@ Deploy from GitHub (repo = deploy source):
    via Cloud Build from the `Dockerfile`, no local gcloud needed),
    **or** with the gcloud SDK installed:
    ```bash
-   gcloud run deploy ai-wildlife --source . --region us-central1 \
-     --use-http2 --min-instances=1 --memory=4Gi --cpu=2 --timeout=600 \
+   gcloud run deploy ai-for-wildlife --source . --region us-central1 \
+     --use-http2 --min-instances=0 --memory=4Gi --cpu=2 --timeout=600 \
      --allow-unauthenticated \
      --set-secrets=OPENROUTER_API_KEY=openrouter-key:latest
    ```
