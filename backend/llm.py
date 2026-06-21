@@ -8,75 +8,24 @@ import time
 
 import httpx
 
+# Prompts (system role + geographic prior, ethogram, JSON task) live in their own
+# module so they're a first-class, easy-to-tune artifact. Re-exported here so existing
+# references like `llm.BEHAVIOR_CATEGORIES` keep working.
+from .prompts import (  # noqa: F401
+    BEHAVIOR_CATEGORIES,
+    CAPTURE_LOCATION,
+    SYSTEM_PROMPT,
+    USER_PROMPT,
+    USER_PROMPT_VIDEO,
+    build_user_prompt,
+)
+
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 # Statuses worth retrying: rate limits (429) and transient upstream errors.
 RETRYABLE_STATUS = {429, 500, 502, 503, 529}
 MAX_RETRIES = 4              # total attempts = MAX_RETRIES
 RETRY_BACKOFF = [2, 5, 10]   # seconds between attempts (last reused if needed)
-
-# Controlled behavior vocabulary (ethogram). Forcing models to pick from a fixed list
-# is the single biggest lever for making BEHAVIOR agree across models — otherwise one
-# model says "walking away" and another "foraging" for the same clip.
-BEHAVIOR_CATEGORIES = [
-    "foraging/feeding",
-    "walking",
-    "running",
-    "resting",
-    "vigilance/alert",
-    "grooming",
-    "drinking",
-    "climbing",
-    "swimming",
-    "flying",
-    "social interaction",
-    "scent-marking",
-    "hunting/stalking",
-    "playing",
-    "fleeing",
-    "not visible/no animal",
-    "other",
-]
-
-SYSTEM_PROMPT = (
-    "You are a wildlife biologist assistant analyzing camera-trap / field video. "
-    "You are given an ordered, time-stamped sequence of still frames sampled from a "
-    "single short video clip — they show the SAME scene as it changes over time. "
-    "Identify the single most prominent animal and infer what it is doing by reasoning "
-    "about how its position and posture CHANGE from frame to frame (motion between "
-    "frames is your main evidence for behavior). If no animal is visible, say so. Be "
-    "precise and use standard common + scientific names when confident."
-)
-
-
-def build_user_prompt(is_video: bool = False) -> str:
-    cats = ", ".join(f'"{c}"' for c in BEHAVIOR_CATEGORIES)
-    intro = (
-        "This is ONE short wildlife video clip. Watch the motion across the clip to judge "
-        "the behavior, "
-        if is_video else
-        "The images are frames from ONE wildlife clip, in chronological order with their "
-        "approximate timestamps. Compare them as a sequence to judge motion and behavior, "
-    )
-    return (
-        intro +
-        "then respond with ONLY a JSON object (no markdown) in exactly this shape:\n"
-        "{\n"
-        '  "species_common": "common name e.g. \\"Red fox\\" (or \\"none\\" if no animal)",\n'
-        '  "species_scientific": "scientific name e.g. \\"Vulpes vulpes\\" (or \\"unknown\\")",\n'
-        '  "behavior": "EXACTLY ONE of this fixed list: ' + cats + '",\n'
-        '  "behavior_detail": "one sentence describing the specific observed behavior",\n'
-        '  "count": integer number of individuals visible (best estimate),\n'
-        '  "confidence": number 0.0-1.0 (your confidence in the species ID),\n'
-        '  "notes": "anything notable: habitat, uncertainty, distinguishing marks"\n'
-        "}\n"
-        'The "behavior" field MUST be copied verbatim from the fixed list above; put any '
-        'nuance (e.g. "walking away from camera") in "behavior_detail".'
-    )
-
-
-USER_PROMPT = build_user_prompt(False)
-USER_PROMPT_VIDEO = build_user_prompt(True)
 
 
 def _video_content_part(model: str, data_uri: str, fmt: str) -> dict:
