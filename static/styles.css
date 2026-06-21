@@ -99,6 +99,17 @@ body {
 .dz-sub { color: var(--muted); font-size: 11px; }
 
 .upload-actions { display: flex; align-items: center; gap: 8px; margin: -4px 0 12px; flex-wrap: wrap; }
+/* While importing, block the dropzone/folder button so the upload isn't re-triggered. */
+.dropzone.busy { pointer-events: none; opacity: .6; }
+
+/* Persistent "importing in progress" banner with a flipping hourglass. */
+.importing-banner {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 12px;
+  background: var(--panel); border: 1px solid var(--accent-dim); border-radius: var(--radius);
+  padding: 10px 12px; color: var(--text); font-size: 13px;
+}
+.importing-icon { font-size: 16px; display: inline-block; transform-origin: center; animation: hourglass 1.2s ease-in-out infinite; }
+@keyframes hourglass { 0%, 55% { transform: rotate(0deg); } 100% { transform: rotate(180deg); } }
 
 .batch-bar { margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
 

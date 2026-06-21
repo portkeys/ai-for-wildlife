@@ -413,18 +413,41 @@ async function deleteVideo(id) {
 // ---------------------------------------------------------------------------
 // Upload
 // ---------------------------------------------------------------------------
+// Persistent in-progress indicator. The folder picker can sit silently for a while
+// (the browser enumerates the folder, then we POST every clip), so show a banner with
+// a flipping hourglass for the whole upload — toasts auto-hide and leave a silent gap.
+function showImporting(n) {
+  const banner = $("#importingBanner");
+  if (!banner) return;
+  $("#importingText").textContent =
+    `Importing ${n} video${n === 1 ? "" : "s"}… large clips can take a moment.`;
+  banner.hidden = false;
+  $("#folderBtn").disabled = true;
+  $("#dropzone").classList.add("busy");
+}
+function hideImporting() {
+  const banner = $("#importingBanner");
+  if (!banner) return;
+  banner.hidden = true;
+  $("#folderBtn").disabled = false;
+  $("#dropzone").classList.remove("busy");
+}
+
 async function uploadFiles(fileList) {
   const files = [...fileList].filter((f) => f.type.startsWith("video/") || /\.(mp4|mov|avi|mkv|webm)$/i.test(f.name));
   if (!files.length) { toast("No video files selected.", true); return; }
   const fd = new FormData();
   files.forEach((f) => fd.append("files", f));
-  toast(`Uploading ${files.length} video(s)… extracting frames…`);
+  showImporting(files.length);
+  toast(`Importing ${files.length} video(s)…`);
   try {
     await api("/api/videos", { method: "POST", body: fd });
     await loadVideos();
-    toast(`Uploaded ${files.length} video(s).`);
+    toast(`Imported ${files.length} video(s).`);
   } catch (e) {
-    toast("Upload failed: " + e.message, true);
+    toast("Import failed: " + e.message, true);
+  } finally {
+    hideImporting();
   }
 }
 

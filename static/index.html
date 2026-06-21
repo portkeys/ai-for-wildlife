@@ -48,6 +48,12 @@
         <span class="hint">Picks every video inside the folder.</span>
       </div>
 
+      <!-- Persistent progress while videos upload/import (folder picks can be slow). -->
+      <div class="importing-banner" id="importingBanner" hidden>
+        <span class="importing-icon">⏳</span>
+        <span id="importingText">Importing videos…</span>
+      </div>
+
       <div class="batch-bar" id="batchBar" hidden>
         <button class="btn small" id="analyzeAllBtn">▶ Analyze unprocessed</button>
         <span class="hint" id="batchHint"></span>
