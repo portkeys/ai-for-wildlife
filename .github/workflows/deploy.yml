@@ -1,0 +1,60 @@
+name: Deploy to Cloud Run
+
+# Auto-deploy on every merge/push to main. Also runnable on demand from the
+# Actions tab ("Run workflow"). Auth is keyless via Workload Identity Federation —
+# no service-account key is stored in GitHub.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write        # required to mint the OIDC token for Google auth
+
+concurrency:
+  group: deploy-cloud-run
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: ai-wildlife-500023
+  REGION: us-central1
+  SERVICE: ai-for-wildlife
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (keyless / WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/729152394086/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deployer@ai-wildlife-500023.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Builds the Dockerfile with Cloud Build and rolls out a new revision.
+      # Keep these flags in sync with DEPLOY.md. To cut cost to ~$0 between demos,
+      # change --min-instances=1 to --min-instances=0 (adds a ~2-5s cold start).
+      - name: Deploy
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --source . \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --use-http2 \
+            --min-instances=1 \
+            --memory=4Gi \
+            --cpu=2 \
+            --timeout=600 \
+            --allow-unauthenticated \
+            --set-secrets=OPENROUTER_API_KEY=openrouter-key:latest \
+            --quiet
+
+      - name: Print service URL
+        run: |
+          gcloud run services describe "$SERVICE" \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --format="value(status.url)"
