@@ -10,7 +10,6 @@ import json
 import os
 import sqlite3
 import uuid
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,6 +18,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import llm, media
+from .db import db, init_db
 
 # ---------------------------------------------------------------------------
 # Paths & config
@@ -96,58 +96,9 @@ def now_iso() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Database
+# Database — see backend/db.py (Postgres/Neon in prod, SQLite locally).
+# `db` (context manager) and `init_db` are imported at the top of this file.
 # ---------------------------------------------------------------------------
-@contextmanager
-def db():
-    conn = sqlite3.connect(DB_PATH, timeout=15)
-    conn.row_factory = sqlite3.Row
-    # Wait (don't error) if the file is briefly locked under concurrent batch analysis.
-    conn.execute("PRAGMA busy_timeout=15000")
-    try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def init_db():
-    with db() as conn:
-        conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS videos (
-                id TEXT PRIMARY KEY,
-                original_name TEXT,
-                stored_name TEXT,
-                duration REAL, width INTEGER, height INTEGER, size_bytes INTEGER,
-                status TEXT DEFAULT 'uploaded',
-                created_at TEXT
-            );
-            CREATE TABLE IF NOT EXISTS analyses (
-                id TEXT PRIMARY KEY,
-                video_id TEXT,
-                model TEXT,
-                status TEXT,
-                species_common TEXT, species_scientific TEXT,
-                behavior TEXT, behavior_detail TEXT,
-                count INTEGER, confidence REAL, notes TEXT,
-                prompt_tokens INTEGER, completion_tokens INTEGER, total_tokens INTEGER,
-                cost_usd REAL, latency_ms INTEGER,
-                error TEXT, raw_text TEXT,
-                created_at TEXT
-            );
-            CREATE TABLE IF NOT EXISTS reviews (
-                video_id TEXT PRIMARY KEY,
-                decision TEXT,
-                final_species_common TEXT, final_species_scientific TEXT,
-                final_behavior TEXT, notes TEXT,
-                reviewer TEXT, updated_at TEXT
-            );
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY, value TEXT
-            );
-            """
-        )
 
 
 def get_setting(key: str, default=None):

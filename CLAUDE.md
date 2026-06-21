@@ -27,8 +27,10 @@ separate frontend server, **no build step**.
 - **Frontend** — zero-build static SPA in `static/` (`index.html`, `app.js`, `styles.css`).
   Plain ES, no framework, no `npm`. Talks to the backend with **relative** paths (`/api/...`),
   so frontend and backend must be served from the **same origin**.
-- **Data** — everything lives in `data/` (gitignored): `uploads/`, `frames/`, `thumbs/`,
-  `compressed/`, and the SQLite db `app.db`. Created on startup if missing.
+- **Data** — local dev: everything in `data/` (gitignored): `uploads/`, `frames/`, `thumbs/`,
+  `compressed/`, and the SQLite db `app.db`. In prod the DB is **Neon Postgres** and `data/` is a
+  **mounted GCS bucket** (see Deployment). DB access goes through `backend/db.py` (Postgres when
+  `DATABASE_URL` is set, SQLite otherwise — same `?`-placeholder API for both).
 - **External** — OpenRouter (`https://openrouter.ai/api/v1`) for all model inference.
 
 ## Running locally
@@ -101,10 +103,11 @@ Decisions baked into the setup:
 - **Scaling:** `--min-instances=0` (scale to zero, ~$0 idle, ~2–5s cold start) for the demo;
   `--min-instances=1` for always-warm (~$40/mo). The prebuilt image makes the cold start far
   shorter than the sleep-prone free tiers we avoided.
-- **In-memory filesystem.** Cloud Run's disk is RAM-backed; `data/` (uploads, frames, db) lives
-  in memory, bounded by instance RAM, and **resets on redeploy/restart**. Acceptable for the
-  demo. Use `--memory=4Gi` and upload in modest batches. Persistence (Neon Postgres + a GCS
-  bucket/volume) is the production next step.
+- **Durable, shared storage** (so every viewer of the link sees the same classified videos,
+  surviving idle/restart/redeploy): **DB → Neon Postgres** via the `DATABASE_URL` secret
+  (`backend/db.py` picks Postgres when it's set, else local SQLite); **video files → a GCS
+  bucket** (`ai-wildlife-500023-data`) mounted at `/app/data` (requires
+  `--execution-environment=gen2`). The data dir is no longer instance-local RAM.
 - **API key:** passed as the `OPENROUTER_API_KEY` env var, ideally via **Secret Manager**
   (`--set-secrets`). Never baked into the image — `.env` is excluded by `.dockerignore`. The env
   var takes precedence over `.env` (see `load_dotenv`).

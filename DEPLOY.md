@@ -13,11 +13,15 @@ mapping; the underlying `…us-central1.run.app` URL also works).
   no HTTP/2); h2c is auto-negotiated. *(Validated locally: a 44.5 MB clip uploads over h2c fine.)*
 - **`--min-instances=0`** — scale to zero so GCP cost is ~$0 between demos (a ~2–5s cold start
   on the first hit after idle). Set `--min-instances=1` for an always-warm instance (~$40/mo).
-- **`--memory=4Gi`** — Cloud Run's filesystem is RAM-backed; uploads/frames/db live in memory.
-  Give it headroom and upload in modest batches. Data **resets on redeploy** (fine for the demo;
-  see "Persistence" below).
-- **API key via Secret Manager** — never baked into the image (`.env` is gitignored + in
-  `.dockerignore`). The env var takes precedence over any `.env`.
+- **`--memory=4Gi`** — headroom for transcoding large clips; upload in modest batches.
+- **Durable storage** — data is **shared and persistent** so every viewer of the link sees the
+  same classified videos (survives idle/restart/redeploy):
+  - **Database → Neon Postgres** via the `DATABASE_URL` secret. If unset, the app falls back to a
+    local SQLite file (used for local dev only).
+  - **Video files → a GCS bucket** (`ai-wildlife-500023-data`) mounted at `/app/data` (needs
+    `--execution-environment=gen2`). The runtime SA has `roles/storage.objectAdmin` on it.
+- **Secrets via Secret Manager** — keys never baked into the image (`.env` is gitignored + in
+  `.dockerignore`). Env vars take precedence over any `.env`.
 
 ## One-time setup
 
@@ -34,6 +38,17 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
 # 3. Store the OpenRouter key as a secret (paste the key at the prompt, Ctrl-D to end)
 gcloud secrets create openrouter-key --replication-policy=automatic
 gcloud secrets versions add openrouter-key --data-file=-
+
+# 4. Durable storage:
+#    a) Create a free Neon Postgres DB (https://neon.tech) and copy its connection string,
+#       then store it as a secret (paste the postgresql://… URL, Ctrl-D to end):
+gcloud secrets create database-url --replication-policy=automatic
+gcloud secrets versions add database-url --data-file=-
+#    b) Create the GCS bucket for video files and grant the runtime SA access:
+gcloud storage buckets create gs://ai-wildlife-500023-data --location=us-central1 --uniform-bucket-level-access
+gcloud storage buckets add-iam-policy-binding gs://ai-wildlife-500023-data \
+  --member=serviceAccount:729152394086-compute@developer.gserviceaccount.com \
+  --role=roles/storage.objectAdmin
 ```
 
 ## Deploy (run again on every change)
@@ -47,12 +62,16 @@ gcloud run deploy ai-for-wildlife \
   --memory=4Gi \
   --cpu=2 \
   --timeout=600 \
+  --execution-environment=gen2 \
   --allow-unauthenticated \
-  --set-secrets=OPENROUTER_API_KEY=openrouter-key:latest
+  --add-volume=name=data,type=cloud-storage,bucket=ai-wildlife-500023-data \
+  --add-volume-mount=volume=data,mount-path=/app/data \
+  --set-secrets=OPENROUTER_API_KEY=openrouter-key:latest,DATABASE_URL=database-url:latest
 ```
 
 `--source .` builds the `Dockerfile` with Cloud Build and deploys it. The command prints a
-`https://ai-for-wildlife-….run.app` URL — share that with the CCF team.
+`https://ai-for-wildlife-….run.app` URL — share that with the CCF team. **Normally you don't run
+this** — merging to `main` auto-deploys via GitHub Actions.
 
 > Prefer no terminal? In the Cloud Run console you can instead "Connect to a GitHub repository"
 > for continuous deployment (builds the same `Dockerfile`), then set the same flags under the
@@ -63,8 +82,12 @@ gcloud run deploy ai-for-wildlife \
 `--allow-unauthenticated` makes the URL public (simplest for a demo). To restrict it, drop that
 flag and grant `roles/run.invoker` to specific Google accounts, or put it behind IAP.
 
-## Persistence (next step, not needed for the demo)
+## Persistence (implemented)
 
-In-memory storage resets on redeploy. For durable data: move the DB to **Neon Postgres** and
-store videos in a **GCS bucket** (mounted as a volume, or — the real goal — uploaded directly via
-signed URLs and classified by object URL). See `ROADMAP.md` and `CLAUDE.md`.
+Data is durable and shared across instances: **DB → Neon Postgres** (`DATABASE_URL` secret),
+**files → GCS bucket** mounted at `/app/data`. So the link reliably shows everyone the same
+classified videos. The eventual production goal is to skip manual upload and classify videos
+straight from a cloud-storage URL (signed URLs / object references) — see `ROADMAP.md`.
+
+To wipe the demo data and start fresh: clear the Neon tables and empty the bucket
+(`gcloud storage rm "gs://ai-wildlife-500023-data/**"`).

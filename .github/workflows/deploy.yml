@@ -47,12 +47,15 @@ jobs:
             --project "$PROJECT_ID" \
             --region "$REGION" \
             --use-http2 \
+            --execution-environment=gen2 \
             --min-instances=0 \
             --memory=4Gi \
             --cpu=2 \
             --timeout=600 \
             --allow-unauthenticated \
-            --set-secrets=OPENROUTER_API_KEY=openrouter-key:latest \
+            --add-volume=name=data,type=cloud-storage,bucket=ai-wildlife-500023-data \
+            --add-volume-mount=volume=data,mount-path=/app/data \
+            --set-secrets=OPENROUTER_API_KEY=openrouter-key:latest,DATABASE_URL=database-url:latest \
             --quiet
 
       - name: Print service URL
